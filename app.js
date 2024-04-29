@@ -10,6 +10,8 @@ const express = require('express')
 const app = express()
 //const port = 3000
 const port = 10000
+const bodyParser = require('body-parser')
+const urlendcodedParser = bodyParser.urlencoded({ extended: false })
 app.get('/', (req, res) => {
     res.send('Hello World!')
 })
@@ -27,6 +29,27 @@ app.get('/api/subscriptions', (req, res) => {
             console.log(error);
             res.status(500).json({message: 'Error reading from Database: ' +
                     error.message});
+        });
+});
+app.post('/api/subscriptions',urlendcodedParser, async (req, res) =>
+{
+    //res.send({name: 'jeff', email:"test@test.com"});
+    //const {error} = await supabase
+    supabase
+        .from('subscriptions')
+        .insert(
+            {name: req.body.name,
+            email: req.body.email,
+            }
+        )
+        .then(response =>{
+            console.log(response);
+            res.status(200).json(response.data);
+        })
+        .catch(error => {
+            console.log(error);
+            res.status(500).json({message: 'Error reading from Database: '
+                    + error.message});
         });
 });
 app.listen(port, () => {
