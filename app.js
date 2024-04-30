@@ -52,6 +52,26 @@ app.post('/api/subscriptions',urlendcodedParser, async (req, res) =>
                     + error.message});
         });
 });
+app.get('/api/Users', async (req, res)=>{
+    let passwordHashed = req.query.password;
+    let mail = req.query.email;
+    supabase
+        .from('Users')
+        .select('ranking, id')
+        //.select('id')
+        .eq('password', passwordHashed)
+        .eq('email', mail)
+        .then( response => {
+                res.status(200).json(response.data)
+            }
+        )
+        .catch( error =>
+    {
+        res.status(500).json({
+            message: 'Error reading from Database: ' +
+                error.message});
+    });
+});
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
 })
