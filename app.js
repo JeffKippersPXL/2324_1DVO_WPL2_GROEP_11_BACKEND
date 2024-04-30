@@ -72,6 +72,26 @@ app.get('/api/Users', async (req, res)=>{
                 error.message});
     });
 });
+app.put('/api/Users', async (req, res) =>{
+    let hashedPassword = req.query.password;
+    let email = req.query.email;
+    let hashedOldPassword = req.query.oldpassword;
+    supabase
+        .from('Users')
+        .update({password: hashedPassword})
+        .eq('email', email)
+        .eq('password', hashedOldPassword)
+        .then( response => {
+                res.status(200).json({message: "Password is veranderd"})
+            }
+        )
+        .catch( error =>
+        {
+            res.status(500).json({
+                message: 'Error reading from Database: ' +
+                    error.message});
+        });
+});
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
 })
