@@ -6,7 +6,12 @@ const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 //Client to interact with the database
 const supabase = createClient(url, key);
 //-------------------------
-const express = require('express')
+const { Resend } = require ('resend');
+const resend = new Resend('re_D7KwAsKt_Q5hGWsQLgofjYdyY7CWebHNG');
+
+const express = require('express');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 const app = express()
 //const port = 3000
 //Localhost portnumber
@@ -15,10 +20,18 @@ const port = 10000
 const bodyParser = require('body-parser')
 const urlendcodedParser = bodyParser.urlencoded({ extended: false })
 
+//Supabase voor server
+//Resend voor mails
+
 //Test Data and Test Api
+//Geeft alles weer in de database subscribers voor de nieuwsbrief
 app.get('/', (req, res) => {
     res.send('Hello World!')
 })
+
+//===================-API"s for subscription-=======================
+//
+//API to get all subscriber no questions aksed (aka remove this security flaw once done with testing
 app.get('/api/subscriptions', (req, res) => {
     // Logic to fetch all e-mails
     supabase
@@ -35,18 +48,39 @@ app.get('/api/subscriptions', (req, res) => {
                     error.message});
         });
 });
-//More test data and examples
+//API voor jezelf te kunnen subscriben aan de nieuwsbrief
+// Vraagt naam en email, en voegt deze dan toe aan de database
+//Still needed to add a confirmation link with a  magic link or token.
 app.post('/api/subscriptions',urlendcodedParser, async (req, res) =>
 {
+    let token = crypto.randomUUID();
+    let email = req.query.email;
     supabase
         .from('subscriptions')
         .insert(
-            {name: req.body.name,
-            email: req.body.email,
+            //generate unique token en voeg deze toe voro verificatie.
+            {name: req.query.name,
+            email: email,
+                token: token,
             }
         )
         .then(response =>{
             console.log(response);
+
+            resend.emails.send({
+                from: 'onboarding@resend.dev',
+                to: `${email}`,
+                subject: 'Email verification',
+                html: `<p>Click the following link to confirm your account <strong><a href="http://localhost:10000/api/subscriptionsConfirm?token=${token}&email=${email}">Confirm</strong>!</a></p>`
+
+                //Test
+
+
+                //test
+
+            });
+            //verstuur mail met unique token en link naar api met token nog te implementen
+
             res.status(200).json(response.data);
         })
         .catch(error => {
@@ -55,6 +89,33 @@ app.post('/api/subscriptions',urlendcodedParser, async (req, res) =>
                     + error.message});
         });
 });
+
+app.get('/api/subscriptionsConfirm', (req, res) => {
+    const {token, email} = req.query;
+    console.log("test");
+    supabase
+        .from('subscriptions')
+        .update({confirmed: true, token: 0})
+        .eq('token', token)
+        .eq('email', email)
+        .then(response => {
+            if (response.status >= 200 && response.status < 300) {
+                // If data was updated successfully, redirect to success page
+                res.redirect('/success'); //Vervang dit met je eigen website link
+            } else {
+                // If data wasn't updated (invalid token or email), redirect to error page
+                res.redirect('/error'); //Vervang dit met je eigen website link
+            }
+        })
+        .catch(error => {
+            res.status(500).json({
+                message: 'error reading from database: ' + error.message
+            });
+        });
+});
+
+//===================-API"s for Users & Passwords-=======================
+//
 //API to get a user based on email and password
 //Currently returns ranking(true or false) and a ID
 app.get('/api/Users', async (req, res)=>{
@@ -121,9 +182,22 @@ app.put('/api/UsersEmail', async (req, res) =>{
                     error.message});
         });
 });
+
+//Route to inital password reset WIP
+app.post('forgot-password', (req, res)=>{
+   const {email} = req.body;
+   //checks if the email exist in the database
+    supabase
+        .from("users")
+        .select('email')
+        .eq('email', email)
+
+});
+
+//===================-Listening port-=======================
+//Shhhh, You'll scare away the ducks
+//
 //Listens to the specefied port number if a api call is made
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
 })
-
-//----------------
