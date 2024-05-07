@@ -13,9 +13,11 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const app = express()
+
 //const port = 3000
 //Localhost portnumber
 const port = 10000
+
 //Used to be able to read body data
 const bodyParser = require('body-parser')
 const urlendcodedParser = bodyParser.urlencoded({ extended: false })
@@ -31,7 +33,7 @@ app.get('/', (req, res) => {
 
 //===================-API"s for subscription-=======================
 //
-//API to get all subscriber no questions aksed (aka remove this security flaw once done with testing
+//API to get all subscriber no questions asked (aka remove this security flaw once done with testing
 app.get('/api/subscriptions', (req, res) => {
     // Logic to fetch all e-mails
     supabase
@@ -48,6 +50,7 @@ app.get('/api/subscriptions', (req, res) => {
                     error.message});
         });
 });
+
 //API voor jezelf te kunnen subscriben aan de nieuwsbrief
 // Vraagt naam en email, en voegt deze dan toe aan de database
 //Still needed to add a confirmation link with a  magic link or token.
@@ -57,47 +60,54 @@ app.post('/api/subscriptions',urlendcodedParser, async (req, res) =>
     let email = req.query.email;
     supabase
         .from('subscriptions')
-        .insert(
-            //generate unique token en voeg deze toe voro verificatie.
-            {name: req.query.name,
-            email: email,
-                token: token,
+        .select('email')
+        .eq('email' ,email)
+        .then(response => {
+            if (response.code(200)){
+                return res.status(400).json({message: 'Email already exists'});
+            } else {
+                supabase
+                    .from('subscriptions')
+                    .insert(
+                        //generate unique token en voeg deze toe voro verificatie.
+                        {name: req.query.name,
+                            email: email,
+                            token: token,
+                        }
+                    )
+                    .then(response =>{
+                        console.log(response);
+
+                        //verstuur mail met unique token en link naar api met token
+                        resend.emails.send({
+                            from: 'onboarding@resend.dev',
+                            to: `${email}`,
+                            subject: 'Email verification',
+                            html: `<p>Click the following link to confirm your account <strong><a href="http://localhost:10000/api/subscriptionsConfirm?token=${token}">Confirm</strong>!</a></p>`
+                        });
+
+                        res.status(200).json(response.data);
+                    })
+                    .catch(error => {
+                        console.log(error);
+                        res.status(500).json({message: 'Error reading from Database: '
+                                + error.message});
+                    });
             }
-        )
-        .then(response =>{
-            console.log(response);
-
-            resend.emails.send({
-                from: 'onboarding@resend.dev',
-                to: `${email}`,
-                subject: 'Email verification',
-                html: `<p>Click the following link to confirm your account <strong><a href="http://localhost:10000/api/subscriptionsConfirm?token=${token}&email=${email}">Confirm</strong>!</a></p>`
-
-                //Test
-
-
-                //test
-
             });
-            //verstuur mail met unique token en link naar api met token nog te implementen
 
-            res.status(200).json(response.data);
-        })
-        .catch(error => {
-            console.log(error);
-            res.status(500).json({message: 'Error reading from Database: '
-                    + error.message});
-        });
+
+
+
 });
 
 app.get('/api/subscriptionsConfirm', (req, res) => {
-    const {token, email} = req.query;
+    const {token} = req.query;
     console.log("test");
     supabase
         .from('subscriptions')
-        .update({confirmed: true, token: 0})
+        .update({confirmed: true})
         .eq('token', token)
-        .eq('email', email)
         .then(response => {
             if (response.status >= 200 && response.status < 300) {
                 // If data was updated successfully, redirect to success page
@@ -191,7 +201,6 @@ app.post('forgot-password', (req, res)=>{
         .from("users")
         .select('email')
         .eq('email', email)
-
 });
 
 //===================-Listening port-=======================
