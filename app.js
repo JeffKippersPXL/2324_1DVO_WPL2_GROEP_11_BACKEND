@@ -20,6 +20,15 @@ const port = 10000
 const bodyParser = require('body-parser')
 const urlendcodedParser = bodyParser.urlencoded({ extended: false })
 
+//enabeling cross server talk
+//CORS ook wel bekend als
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    next();
+});
+
 //Supabase voor server
 //Resend voor mails
 
