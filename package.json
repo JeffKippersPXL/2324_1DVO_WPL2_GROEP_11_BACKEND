@@ -12,6 +12,7 @@
     "@supabase/supabase-js": "^2.42.4",
     "crypto.js": "^3.2.1",
     "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.9.13",
     "nodemailer.js": "^0.0.2-security",
     "resend": "^3.2.0"
