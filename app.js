@@ -10,7 +10,6 @@ const { Resend } = require ('resend');
 const resend = new Resend('re_D7KwAsKt_Q5hGWsQLgofjYdyY7CWebHNG');
 
 const express = require('express');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const secretKey = 'your-secret-key';//Edit to something more random and secure
@@ -47,6 +46,7 @@ app.get('/', (req, res) => {
 //===================-API"s for subscription-=======================
 //
 //API to get all subscriber no questions asked (aka remove this security flaw once done with testing
+/*
 app.get('/api/subscriptions', (req, res) => {
     // Logic to fetch all e-mails
     supabase
@@ -63,56 +63,60 @@ app.get('/api/subscriptions', (req, res) => {
                     error.message});
         });
 });
+*/
 
 //API voor jezelf te kunnen subscriben aan de nieuwsbrief
 // Vraagt naam en email, en voegt deze dan toe aan de database
 //Still needed to add a confirmation link with a  magic link or token.
-app.post('/api/subscriptions',urlendcodedParser, async (req, res) =>
-{
+app.post('/api/subscriptions', urlendcodedParser, async (req, res) => {
     let token = crypto.randomUUID();
     let email = req.query.email;
-    supabase
-        .from('subscriptions')
-        .select('email')
-        .eq('email' ,email)
-        .then(response => {
-            if (response.code(200)){
-                return res.status(400).json({message: 'Email already exists'});
-            } else {
-                supabase
-                    .from('subscriptions')
-                    .insert(
-                        //generate unique token en voeg deze toe voro verificatie.
-                        {name: req.query.name,
-                            email: email,
-                            token: token,
-                        }
-                    )
-                    .then(response =>{
-                        console.log(response);
+    let name = req.query.name;
 
-                        //verstuur mail met unique token en link naar api met token
-                        resend.emails.send({
-                            from: 'onboarding@resend.dev',
-                            to: `${email}`,
-                            subject: 'Email verification',
-                            html: `<p>Click the following link to confirm your account <strong><a href="http://localhost:10000/api/subscriptionsConfirm?token=${token}">Confirm</strong>!</a></p>`
-                        });
+    try {
+        let { data: existingEmails, error: selectError } = await supabase
+            .from('subscriptions')
+            .select('email')
+            .eq('email', email);
 
-                        res.status(200).json(response.data);
-                    })
-                    .catch(error => {
-                        console.log(error);
-                        res.status(500).json({message: 'Error reading from Database: '
-                                + error.message});
-                    });
+        if (selectError) {
+            return res.status(500).json({ message: 'Error reading from Database: ' + selectError.message });
+        }
+
+        if (existingEmails.length > 0) {
+            return res.status(400).json({ message: 'Email already exists' });
+        } else {
+            let { data: insertData, error: insertError } = await supabase
+                .from('subscriptions')
+                .insert({
+                    name: name,
+                    email: email,
+                    token: token,
+                });
+
+            if (insertError) {
+                return res.status(500).json({ message: 'Error inserting into Database: ' + insertError.message });
             }
+
+            // Send verification email
+            resend.emails.send({
+                from: 'onboarding@resend.dev',
+                to: `${email}`,
+                subject: 'Email verification',
+                html: `<p>Click the following link to confirm your account <strong><a href="http://localhost:10000/api/subscriptionsConfirm?token=${token}">Confirm</strong>!</a></p>`
             });
+
+            return res.status(200).json(insertData);
+        }
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: 'Server error: ' + error.message });
+    }
 });
+
 
 app.get('/api/subscriptionsConfirm', (req, res) => {
     const {token} = req.query;
-    console.log("test");
     supabase
         .from('subscriptions')
         .update({confirmed: true})
@@ -133,76 +137,188 @@ app.get('/api/subscriptionsConfirm', (req, res) => {
         });
 });
 
-app.post('api/subscriptionsDelete', (req, res) => {
-    const {email} = req.query;
-    supabase
-        .from('subscriptions')
-        .select('token')
-        .eq('email', email)
-        .then( response => {
-                if(response.status >=200 && response.status < 300){
-                    const {token} = response.data;
-                    resend.emails.send({
-                        from: 'onboarding@resend.dev',
-                        to: `${email}`,
-                        subject: 'Email verification',
-                        html: `<p>Click the following link to Delete your Subscription <strong><a href="http://localhost:10000/api/subscriptionsDelete?token=${token}">Confirm</strong>!</a></p>`
-                    });
-                    }
-            })
-        .catch(error => {
-            res.status(500).json({
-                message: 'error reading from database: ' + error.message
-            });
+app.post('/api/subscriptionsDelete', async (req, res) => {
+    const { email } = req.query;
+
+    try {
+        // Fetch the token associated with the email
+        let { data: existingData, error: selectError } = await supabase
+            .from('subscriptions')
+            .select('token')
+            .eq('email', email)
+            .single(); // .single() to expect only one row
+
+        if (selectError) {
+            return res.status(500).json({ message: 'Error reading from Database: ' + selectError.message });
+        }
+
+        if (!existingData) {
+            return res.status(400).json({ message: 'Email not found' });
+        }
+
+        const { token } = existingData;
+
+        // Send the verification email
+        resend.emails.send({
+            from: 'onboarding@resend.dev',
+            to: `${email}`,
+            subject: 'Email verification',
+            html: `<p>Click the following link to delete your subscription: <strong><a href="http://localhost:10000/api/subscriptionsDelete?token=${token}">Confirm</a></strong></p>`
         });
+
+        return res.status(200).json({ message: 'Verification email sent' });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: 'Server error: ' + error.message });
+    }
 });
 
-    //Delete
-app.get('api/subscriptionsDelete', (req,res) =>{
-    const{token} = req.query;
-    supabase
-        .from('subscriptions')
-        .delete()
-        .eq('token', token)
-        .then(response =>{
-            res.status(200).json({message:'U ben uitgeschreven voor de subscriber mail'});
-        })
-        .catch(
-            res.status(500).json({message:'Er is iets foutgelopen met u uit de lijst te halen, gelieven contact op te nemen met een admin'})
-        )
-    });
+
+//Delete
+app.get('/api/subscriptionsDelete', async (req, res) => {
+    const { token } = req.query;
+
+    try {
+        let { error } = await supabase
+            .from('subscriptions')
+            .delete()
+            .eq('token', token);
+
+        if (error) {
+            return res.status(500).json({
+                message: 'Er is iets foutgelopen met u uit de lijst te halen, gelieven contact op te nemen met een admin: ' + error.message
+            });
+        }
+
+        res.status(200).json({ message: 'U ben uitgeschreven voor de subscriber mail' });
+
+    } catch (error) {
+        res.status(500).json({
+            message: 'Server error: ' + error.message
+        });
+    }
+});
+
+
 
 //===================-API"s for Users & Passwords-=======================
 //
-app.post('/api/create-user', (req, res)=>{
-    const {email, name, password, } = req.body;
-    const salt = crypto.randomBytes(16).toString('hex');
-    let hashedPassword = crypto.pbkdf2Sync(password, salt, 1000,64, 'sha256').toString('hex');
-    //checks if the email exist in the database
-    supabase
-        .from("users")
-        .select('email')
-        .eq('email', email)
-        .then(response =>{
-                if(!response.code(200)){
-                    supabase
-                        .from('users')
-                        .insert({'email': email, 'password': hashedPassword, 'salt': salt})
-                        .then(
-                            response => {
-                                token = jwt.sign({token: token}, secret);
-                                resend.emails.send({
-                                    from: 'onboarding@resend.dev',
-                                    to: `${email}`,
-                                    subject: 'Email verification',
-                                    html: `<p>Click the following link to confirm your account <strong><a href="http://localhost:10000/api/forgot-password?token=${token}">Confirm</strong>!</a></p>`
-                                });
-                                res.status(200).json(response.data);
-                            })
-                }
-            }
-        )
+
+app.post('/api/create-user', async (req, res) => {
+    const { email, name } = req.query;
+    let password = crypto.randomUUID();
+    try {
+        // Check if the email already exists
+        let { data: existingEmails, error: selectError } = await supabase
+            .from('Users')
+            .select('email')
+            .eq('email', email);
+        if (selectError) {
+            return res.status(500).json({ message: 'Error reading from database: ' + selectError.message });
+        }
+
+        if (existingEmails.length > 0) {
+            return res.status(400).json({ message: 'Email already exists' });
+        }
+
+        // Insert new user
+        let { data: insertData, error: insertError } = await supabase
+            .from('Users')
+            .insert({'password': password, 'email': email, 'name': name});
+
+        if (insertError) {
+            return res.status(500).json({ message: 'Error inserting into database: ' + insertError.message });
+        }
+
+        // Generate JWT token
+        let token = jwt.sign({ email }, secretKey);
+// Send email with token
+        const resetLink = `http://localhost:10000/api/password-reset?token=${token}`;
+        resend.emails.send({
+            from: 'onboarding@resend.dev',
+            to: `${email}`,
+            subject: 'Email verification',
+            html: `<p>Click the following link to confirm your account: <a href="${resetLink}">Confirm</a></p>`
+        });
+
+        res.status(200).json({ message: 'User created and email sent' });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Server error: ' + error.message });
+    }
 });
+
+app.post('/api/forgot-password', urlendcodedParser, async (req, res) =>{
+    const email = req.query.email;
+    try{
+    let { data: existingEmails, error: selectError } = await supabase
+        .from('Users')
+        .select('email')
+        .eq('email', email);
+    if (selectError) {
+        return res.status(500).json({ message: 'Error reading from database: ' + selectError.message });
+    }
+
+    if (existingEmails.length < 0) {
+        return res.status(400).json({ message: 'Email not found' });
+    }
+    // Generate JWT token
+    let token = jwt.sign({ email }, secretKey);
+// Send email with token
+    const resetLink = `http://localhost:10000/api/password-reset?token=${token}`;
+    resend.emails.send({
+        from: 'onboarding@resend.dev',
+        to: `${email}`,
+        subject: 'Email verification',
+        html: `<p>Click the following link to reset your password: <a href="${resetLink}">Confirm</a></p>`
+    });
+
+    res.status(200).json({ message: 'User password reset send, check your spam folder!' });
+
+} catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Server error: ' + error.message });
+}
+});
+/*
+app.get('api/password-reset', async, (req, res) => {
+    const token = req.query.token;
+
+    supabase
+
+
+})
+
+app.post('/api/forgot-password', urlendcodedParser, async (req, res) => {
+    app.post('/api/password-reset', urlencodedParser, async (req, res) => {
+        const { token, newPassword } = req.body;
+
+        try{
+
+            const decodedToken = jwt.verify(token, secretKey);
+            const email = decodedToken.email;
+
+            // Update the user's password in the database
+            let { data, error } = await supabase
+                .from('Users')
+                .update({ password: newPassword })
+                .eq('email', email);
+
+            if (error) {
+                return res.status(500).json({ message: 'Error updating password: ' + error.message });
+            }
+
+            res.status(200).json({ message: 'Password has been reset' });
+
+        } catch (error) {
+            console.log(error);
+            res.status(500).json({ message: 'Server error: ' + error.message });
+        }
+
+    });*/
+
 //API to get a user based on email and password
 //Currently returns ranking(true or false) and a ID
 app.get('/api/Users', async (req, res)=>{
@@ -306,14 +422,6 @@ app.post('/api/forgot-password', (req, res)=>{
             }
         )
 });
-
-app.get('/api/password-reset', async (req, res) =>{
-    let {token, password} = req.query;
-    //Use JWT for teh transfering of the token
-    supabase
-        .from('users')
-        .update()
-})
 
 //===================-API"s for Events and the Kalender-=======================
 //
