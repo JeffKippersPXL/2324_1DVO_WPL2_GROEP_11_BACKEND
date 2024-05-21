@@ -24,7 +24,7 @@ const bodyParser = require('body-parser')
 const {hash} = require("crypto.js");
 const {response} = require("express");
 const urlendcodedParser = bodyParser.urlencoded({ extended: false })
-
+app.use(express.json());
 //enabeling cross server talk
 //CORS ook wel bekend als
 app.use((req, res, next) => {
@@ -70,9 +70,12 @@ app.get('/api/subscriptions', (req, res) => {
 //Still needed to add a confirmation link with a  magic link or token.
 app.post('/api/subscriptions', urlendcodedParser, async (req, res) => {
     let token = crypto.randomUUID();
-    let email = req.query.email;
-    let name = req.query.name;
-
+    //let email = req.query.email;
+    //let name = req.query.name;
+    let email = req.body.email;
+    let name = req.body.name;
+    console.log(email);
+    console.log(name);
     try {
         let { data: existingEmails, error: selectError } = await supabase
             .from('subscriptions')
