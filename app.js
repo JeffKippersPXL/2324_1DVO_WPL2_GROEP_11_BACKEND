@@ -74,8 +74,6 @@ app.post('/api/subscriptions', urlendcodedParser, async (req, res) => {
     //let name = req.query.name;
     let email = req.body.email;
     let name = req.body.name;
-    console.log(email);
-    console.log(name);
     try {
         let { data: existingEmails, error: selectError } = await supabase
             .from('subscriptions')
@@ -293,66 +291,35 @@ app.post('/api/forgot-password', urlendcodedParser, async (req, res) =>{
     res.status(500).json({ message: 'Server error: ' + error.message });
 }
 });
-/*
-app.get('api/password-reset', async, (req, res) => {
-    const token = req.query.token;
-
-    supabase
-
-
-})
-
-app.post('/api/forgot-password', urlendcodedParser, async (req, res) => {
-    app.post('/api/password-reset', urlencodedParser, async (req, res) => {
-        const { token, newPassword } = req.body;
-
-        try{
-
-            const decodedToken = jwt.verify(token, secretKey);
-            const email = decodedToken.email;
-
-            // Update the user's password in the database
-            let { data, error } = await supabase
-                .from('Users')
-                .update({ password: newPassword })
-                .eq('email', email);
-
-            if (error) {
-                return res.status(500).json({ message: 'Error updating password: ' + error.message });
-            }
-
-            res.status(200).json({ message: 'Password has been reset' });
-
-        } catch (error) {
-            console.log(error);
-            res.status(500).json({ message: 'Server error: ' + error.message });
-        }
-
-    });*/
 
 //API to get a user based on email and password
 //Currently returns ranking(true or false) and a ID
 app.post('/api/users', async (req, res)=>{
-    let passwordHashed = req.query.password;
-    let mail = req.query.email;
+    let passwordHashed = req.body.password;
+    let mail = req.body.email;
+try {
     passwordHashed = crypto.randomUUID(passwordHashed);
-    supabase
+    let {data: existingUser, error: selectError} = await supabase
         .from('Users')
-        .select('ranking, id')
+        .select('ranking, name, id')
         //.select('id')
         .eq('password', passwordHashed)
-        .eq('email', mail)
-        .then( response => {
-            let token = jwt.sign({userId: response.data.id , isAdmin: response.data.ranking}, secretKey, {expiresIn: '1h'});
-                res.status(200).json(token)
-            }
-        )
-        .catch( error =>
-    {
-        res.status(500).json({
-            message: 'Error reading from Database: ' +
-                error.message});
-    });
+        .eq('email', mail);
+
+    if (selectError) {
+        return res.status(500).json({ message: 'Error reading from database: ' + selectError.message });
+    }
+
+    if (existingUser) {
+        let token = jwt.sign({userId: existingUser.id , isAdmin: existingUser.ranking, userName: existingUser.name}, secretKey, {expiresIn: '1h'});
+        console.log("test");
+        return res.status(200).json(token);
+    }
+} catch (error){
+    console.log(error);
+    return res.status(500).json({ message: 'Server error: ' + error.message });
+}
+
 });
 //API to change password if you still have the current one
 //Asks for your email and password and then replaces your old password with the new one.
