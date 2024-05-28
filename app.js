@@ -472,6 +472,34 @@ app.get('/api/events', (req, res) => {
         });
 });
 
+
+//===================-API for Messages form-================
+app.post('/api/message', urlendcodedParser, async (req, res) => {
+    let email = req.body.email;
+    let name = req.body.name;
+    let telephone = req.body.telephone;
+    let message = req.body.message;
+
+    try {
+            let { data: insertData, error: insertError } = await supabase
+                .from('messages')
+                .insert({
+                    name: name,
+                    email: email,
+                    telephone: telephone,
+                    message: message,
+                });
+
+            if (insertError) {
+                return res.status(500).json({ message: 'Error inserting into Database: ' + insertError.message });
+            }
+
+            return res.status(200).json(insertData);
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: 'Server error: ' + error.message });
+    }
+});
 //===================-Listening port-=======================
 //Shhhh, You'll scare away the ducks
 //
