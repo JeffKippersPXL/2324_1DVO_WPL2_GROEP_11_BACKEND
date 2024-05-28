@@ -332,7 +332,7 @@ app.post('/api/forgot-password', urlendcodedParser, async (req, res) => {
 
 //API to get a user based on email and password
 //Currently returns ranking(true or false) and a ID
-app.get('/api/Users', async (req, res)=>{
+app.post('/api/users', async (req, res)=>{
     let passwordHashed = req.query.password;
     let mail = req.query.email;
     passwordHashed = crypto.randomUUID(passwordHashed);
@@ -356,7 +356,7 @@ app.get('/api/Users', async (req, res)=>{
 });
 //API to change password if you still have the current one
 //Asks for your email and password and then replaces your old password with the new one.
-app.put('/api/Users', async (req, res) =>{
+app.put('/api/password-change', async (req, res) =>{
     let hashedPassword = req.query.password;
     let email = req.query.email;
     let hashedOldPassword = req.query.oldpassword;
