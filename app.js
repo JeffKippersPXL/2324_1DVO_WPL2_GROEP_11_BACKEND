@@ -98,7 +98,7 @@ app.post('/api/subscriptions', urlendcodedParser, async (req, res) => {
             }
 
             // Send verification email
-            resend.emails.send({
+            await resend.emails.send({
                 from: 'onboarding@resend.dev',
                 to: `${email}`,
                 subject: 'Email verification',
