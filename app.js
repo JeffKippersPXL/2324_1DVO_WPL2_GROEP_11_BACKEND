@@ -100,7 +100,7 @@ app.post('/api/subscriptions', urlendcodedParser, async (req, res) => {
             // Send verification email
             await resend.emails.send({
                 from: 'onboarding@resend.dev',
-                to: `${email}`,
+                to: email,
                 subject: 'Email verification',
                 html: `<p>Click the following link to confirm your account <strong><a href="http://localhost:10000/api/subscriptionsConfirm?token=${token}">Confirm</strong>!</a></p>`
             });
