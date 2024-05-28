@@ -21,8 +21,6 @@ const port = process.env.PORT || 10000;
 
 //Used to be able to read body data
 const bodyParser = require('body-parser')
-const {hash} = require("crypto.js");
-const {response} = require("express");
 const urlendcodedParser = bodyParser.urlencoded({ extended: false })
 app.use(express.json());
 //enabeling cross server talk
@@ -296,13 +294,12 @@ app.post('/api/forgot-password', urlendcodedParser, async (req, res) =>{
 //Currently returns ranking(true or false) and a ID
 app.post('/api/users', async (req, res)=>{
     let passwordHashed = req.body.password;
-    let mail = req.body.email;
+    let mail = req.body.mail;
 try {
-    passwordHashed = crypto.randomUUID(passwordHashed);
+    //passwordHashed = crypto.randomUUID(passwordHashed);
     let {data: existingUser, error: selectError} = await supabase
         .from('Users')
         .select('ranking, name, id')
-        //.select('id')
         .eq('password', passwordHashed)
         .eq('email', mail);
 
@@ -312,7 +309,6 @@ try {
 
     if (existingUser) {
         let token = jwt.sign({userId: existingUser.id , isAdmin: existingUser.ranking, userName: existingUser.name}, secretKey, {expiresIn: '1h'});
-        console.log("test");
         return res.status(200).json(token);
     }
 } catch (error){
