@@ -17,7 +17,7 @@ const app = express()
 
 //const port = 3000
 //Localhost portnumber
-const port = 10000
+const port = process.env.PORT || 10000;
 
 //Used to be able to read body data
 const bodyParser = require('body-parser')
@@ -166,7 +166,8 @@ app.post('/api/subscriptionsDelete', async (req, res) => {
             from: 'onboarding@resend.dev',
             to: `${email}`,
             subject: 'Email verification',
-            html: `<p>Click the following link to delete your subscription: <strong><a href="http://localhost:10000/api/subscriptionsDelete?token=${token}">Confirm</a></strong></p>`
+            html: `<p>Click the following link to delete your subscription: <strong><a href="http://localhost:10000/api/subscriptionsDelete?token=${token}">Confirm</a></strong></p>
+            <p>Uitschrijven voor de mail? Dat kan via deze link! <strong><a href="http://localhost:10000/api/subscriptionsDelete?token=${token}">Uitschrijven</a></strong></p>`
         });
 
         return res.status(200).json({ message: 'Verification email sent' });
@@ -203,7 +204,14 @@ app.get('/api/subscriptionsDelete', async (req, res) => {
     }
 });
 
-
+//===================-API"s for Users & Passwords-=======================
+//
+app.post('/api/initiate', urlendcodedParser,async (req, res) => {
+    let name = req.body.name;
+    let email = req.body.email;
+    let tel = req.body.email;
+    let message = req.body.email;
+})
 
 //===================-API"s for Users & Passwords-=======================
 //
